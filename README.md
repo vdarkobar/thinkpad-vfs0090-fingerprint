@@ -2,6 +2,7 @@
 
 
 A Fedora-focused installer for initializing and enabling the Validity/Synaptics VFS7500 fingerprint reader used in ThinkPad P50-era laptops.
+<a href="https://github.com/vdarkobar/fingerprint-reader-firmware">*</a>.</i>
 
 
 <details>
