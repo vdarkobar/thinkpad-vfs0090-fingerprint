@@ -1,2 +1,3 @@
 # thinkpad-vfs0090-fingerprint
-Fedora setup and initialization tools for Validity/Synaptics VFS0090 138a:0090 fingerprint readers on ThinkPad laptops.
+
+A Fedora-focused installer for initializing and enabling the Validity/Synaptics VFS7500 fingerprint reader used in ThinkPad P50-era laptops.
