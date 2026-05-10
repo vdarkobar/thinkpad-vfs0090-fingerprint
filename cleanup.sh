@@ -258,19 +258,27 @@ EOF
   systemctl daemon-reload
 }
 
-maybe_remove_fprintd_packages() {
-  log "Leaving Fedora fprintd/fprintd-pam installed"
+report_fprintd_package_state() {
+  log "Checking remaining fprintd package state"
 
-  cat <<'EOF'
-This cleanup intentionally leaves Fedora's standard fprintd and fprintd-pam
-packages installed if present. They are normal distribution packages and may be
-used by GNOME/Fedora even without the VFS0090 COPR driver.
-
-If you want to remove them too, run manually:
-
-  sudo dnf remove fprintd fprintd-pam
+  if rpm -q fprintd fprintd-pam >/dev/null 2>&1; then
+    cat <<'EOF'
+Fedora's standard fprintd/fprintd-pam packages are still installed.
+That is OK; the VFS0090 COPR driver and local helper tools have been removed.
 
 EOF
+  else
+    cat <<'EOF'
+Fedora fprintd/fprintd-pam are no longer installed.
+That is also OK for a full cleanup: dnf may remove them as dependent packages
+when libfprint-vfs0090 is removed.
+
+If you later want Fedora's standard fingerprint stack back, run:
+
+  sudo dnf install fprintd fprintd-pam
+
+EOF
+  fi
 }
 
 print_final_state() {
@@ -303,7 +311,7 @@ main() {
   remove_conflicting_old_stack
   remove_vfs0090_driver_and_copr
   restore_fprintd_dbus_file_if_fprintd_installed
-  maybe_remove_fprintd_packages
+  report_fprintd_package_state
   print_final_state
 }
 
