@@ -7,5 +7,5 @@ A Fedora-focused installer for initializing and enabling the Validity/Synaptics 
 <details>
   <summary>Setup</summary>
   <p>Updates LXC containers.</p>
-  <pre><code>bash &lt;(curl -fsSL https://raw.githubusercontent.com/vdarkobar/scripts/main/bash/lxc-update.sh)</code></pre>
+  <pre><code>bash &lt;(curl -fsSL https://raw.githubusercontent.com/vdarkobar/thinkpad-vfs0090-fingerprint/main/setup.sh)</code></pre>
 </details>
