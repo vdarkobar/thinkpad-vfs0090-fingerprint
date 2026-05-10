@@ -31,6 +31,7 @@ SRC_DIR="${BASE_DIR}/source"
 VENV_DIR="${BASE_DIR}/venv"
 STATE_DIR="${BASE_DIR}/state"
 COMMON_DIR="${BASE_DIR}/common"
+FIRMWARE_DIR="${BASE_DIR}/firmware"
 
 INIT_REPO_URL="${INIT_REPO_URL:-https://github.com/vdarkobar/python-validity.git}"
 # Optional: pin to a branch, tag, or commit. Empty means default branch HEAD.
@@ -38,6 +39,7 @@ INIT_REPO_REF="${INIT_REPO_REF:-}"
 
 LENOVO_DRIVER_URL="https://download.lenovo.com/pccbbs/mobiles/n1cgn08w.exe"
 LENOVO_FW_NAME="6_07f_Lenovo.xpfwext"
+LOCAL_FW_PATH="${FIRMWARE_DIR}/${LENOVO_FW_NAME}"
 
 ASSUME_YES="${ASSUME_YES:-0}"
 RUN_INIT="${RUN_INIT:-1}"
@@ -72,6 +74,10 @@ Environment overrides:
   RUN_INIT=0
   INIT_REPO_URL=https://github.com/vdarkobar/python-validity.git
   INIT_REPO_REF=<branch|tag|commit>
+
+Manual firmware fallback:
+  If Lenovo's official URL is unavailable, place this file before rerunning:
+    ${LOCAL_FW_PATH}
 
 EOF
 }
@@ -151,11 +157,15 @@ This will factory-reset and pair the ${SENSOR_USB_ID} fingerprint sensor with th
 This is required for the VFS0090 driver, but it is a destructive sensor-side
 initialization step. It should only be run on the intended ThinkPad/workstation.
 
-Lenovo firmware source that will be downloaded by the initializer:
+Official Lenovo firmware source checked by this script:
   ${LENOVO_DRIVER_URL}
 
-Firmware extracted from that Lenovo package:
+Firmware expected inside Lenovo package:
   ${LENOVO_FW_NAME}
+
+If the official Lenovo URL is unavailable, the script will look for a manually
+provided firmware file here:
+  ${LOCAL_FW_PATH}
 
 EOF
 
@@ -245,7 +255,7 @@ create_venv() {
   "${VENV_DIR}/bin/python" -m pip install -U pip setuptools wheel
   "${VENV_DIR}/bin/pip" install pyusb pycryptodome fastecdsa
 
-  mkdir -p "${STATE_DIR}" "${COMMON_DIR}"
+  mkdir -p "${STATE_DIR}" "${COMMON_DIR}" "${FIRMWARE_DIR}"
 }
 
 patch_time_clock() {
@@ -418,25 +428,82 @@ EOF
   chmod +x /usr/local/bin/vfs0090-factory-reset
 }
 
+lenovo_firmware_url_available() {
+  # Some vendor servers behave differently for HEAD requests, so try HEAD first
+  # and then a tiny ranged GET before declaring the URL unavailable.
+  curl -fsSIL --max-time 20 "${LENOVO_DRIVER_URL}" >/dev/null 2>&1 \
+    || curl -fsSL --max-time 20 --range 0-0 "${LENOVO_DRIVER_URL}" -o /dev/null >/dev/null 2>&1
+}
+
+resolve_initializer_firmware_args() {
+  INIT_FIRMWARE_ARGS=()
+
+  log "Checking Lenovo firmware source"
+  cat <<EOF
+Official Lenovo firmware source:
+  ${LENOVO_DRIVER_URL}
+
+Firmware expected inside Lenovo package:
+  ${LENOVO_FW_NAME}
+
+Local manual firmware path, used only if Lenovo's official download is unavailable:
+  ${LOCAL_FW_PATH}
+EOF
+
+  local attempt
+  for attempt in 1 2 3; do
+    if lenovo_firmware_url_available; then
+      log "Official Lenovo firmware URL is reachable"
+      INIT_FIRMWARE_ARGS=()
+      return 0
+    fi
+
+    warn "Official Lenovo firmware URL check failed, attempt ${attempt}/3"
+
+    if [[ -s "${LOCAL_FW_PATH}" ]]; then
+      log "Using local user-provided firmware file"
+      ls -lh "${LOCAL_FW_PATH}"
+      INIT_FIRMWARE_ARGS=( -f "${LOCAL_FW_PATH}" )
+      return 0
+    fi
+
+    if [[ "${attempt}" -lt 3 ]]; then
+      warn "Local firmware file not found yet: ${LOCAL_FW_PATH}"
+      sleep 2
+    fi
+  done
+
+  cat <<EOF
+
+Official Lenovo download failed.
+
+Please manually download the Lenovo driver from:
+${LENOVO_DRIVER_URL}
+
+Then extract/copy the firmware file and place it here:
+${LOCAL_FW_PATH}
+
+Expected firmware filename:
+${LENOVO_FW_NAME}
+
+After placing the file, rerun this setup script.
+
+EOF
+
+  die "Lenovo download is unavailable and local firmware file was not found."
+}
+
 run_initializer() {
   if [[ "${RUN_INIT}" != "1" ]]; then
     warn "Skipping sensor initialization. Wrappers are installed under /usr/local/bin."
     return 0
   fi
 
-  log "Lenovo firmware source"
-  cat <<EOF
-The initializer will download Lenovo's official fingerprint driver:
-  ${LENOVO_DRIVER_URL}
-
-It will extract firmware:
-  ${LENOVO_FW_NAME}
-EOF
-
+  resolve_initializer_firmware_args
   stop_conflicting_services
 
   log "Running patched VFS0090 initializer"
-  /usr/local/bin/vfs0090-init
+  /usr/local/bin/vfs0090-init "${INIT_FIRMWARE_ARGS[@]}"
 
   log "Running LED test"
   /usr/local/bin/vfs0090-led-test
