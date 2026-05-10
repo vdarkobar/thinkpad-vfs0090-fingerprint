@@ -6,6 +6,6 @@ A Fedora-focused installer for initializing and enabling the Validity/Synaptics 
 
 <details>
   <summary>Setup</summary>
-  <p>Updates LXC containers.</p>
-  <pre><code>bash &lt;(curl -fsSL https://raw.githubusercontent.com/vdarkobar/thinkpad-vfs0090-fingerprint/main/setup.sh)</code></pre>
+  <p>Run on a clean Fedora Workstation with a Validity/Synaptics VFS0090 `138a:0090` fingerprint reader:</p>
+  <pre><code>bash &lt;(curl -fsSL curl -fsSL https://raw.githubusercontent.com/vdarkobar/thinkpad-vfs0090-fingerprint/main/setup.sh | sudo bash)</code></pre>
 </details>
